@@ -1,0 +1,17 @@
+{
+  "name": "ardufetch-serial",
+  "version": "1.0.0",
+  "description": "Read, display and save data from Arduino based probe",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Hristo Kamenov",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.15.2",
+    "serialport": "^4.0.7",
+    "socket.io": "^1.7.3",
+    "three": "^0.85.2"
+  }
+}

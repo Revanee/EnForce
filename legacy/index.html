@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>Enforce6 Team - Data Visualization</title>
+	<link rel=stylesheet href="index.css">
+	<script src="socket.io/socket.io.js"></script>
+	<script>
+		var socket = io();
+
+	</script>
+	<script src="jquery-3.2.1.js"></script>
+	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+	<script src="p5/p5.js"></script>
+	<script src="p5/addons/p5.dom.js"></script>
+	<script type="text/javascript" src="smoothie.js"></script>
+	<script type="text/javascript" src="three.js"></script>
+	<script>
+		var offX = 0;
+		var offY = 0;
+		var offZ = 0;
+
+		var imuOrientation = {
+			x: 0,
+			y: 0,
+			z: 0
+		}
+
+		var multiValues = {
+			temp: 0,
+			pressure: 0,
+			humidity: 0,
+			altitude: 0
+		}
+
+		calibrate = function() {
+			offX = imuOrientation.x;
+			offY = imuOrientation.y;
+			offZ = imuOrientation.z;
+		}
+
+		getID = function() {
+			textID = document.getElementById('idBox').value;
+			if (textID != null) {
+				return textID;
+			} else return 0;
+		}
+
+		socket.on('imu_values', function(imu) {
+			imuOrientation = imu;
+		});
+
+		socket.on('multi_values', function(multi) {
+			multiValues = multi;
+			updateChart();
+		});
+
+		var updateChart = function() {
+			chartTemp.append(new Date().getTime(), multiValues.temp);
+			chartPressure.append(new Date().getTime(), multiValues.pressure);
+			chartHumidity.append(new Date().getTime(), multiValues.humidity);
+			chartAltitude.append(new Date().getTime(), multiValues.altitude * 1000);
+			document.getElementById("humidity").innerHTML = multiValues.humidity;
+			document.getElementById("pressure").innerHTML = multiValues.pressure;
+			document.getElementById("temperature").innerHTML = multiValues.temp;
+			document.getElementById("altitude").innerHTML = multiValues.altitude;
+		};
+
+		var play = function() {
+			socket.emit('replay', getID());
+		};
+
+
+		var btnRecord = document.getElementById('btnRecord');
+		var btnPlay = document.getElementById('btnPlay');
+
+		socket.on('startReplay', function() {
+			document.getElementById('btnPlay').disabled = true;
+			document.getElementById('btnPlay').textContent = "Playing";
+		});
+
+		socket.on('stopReplay', function() {
+			document.getElementById('btnPlay').disabled = false;
+			document.getElementById('btnPlay').textContent = "Play";
+		});
+
+		var record = function() {
+			socket.emit('record', getID());
+			if (!btnPlay.disabled) {
+				socket.emit('startRecord');
+				btnRecord.textContent = "Stop recording";
+				btnPlay.disabled = true;
+			} else {
+				btnRecord.textContent = "Record";
+				btnPlay.disabled = false;
+			}
+		};
+
+
+		//Google stuff
+
+		// Load the Visualization API and the corechart package.
+		google.charts.load('current', {
+			'packages': ['line', 'map']
+		});
+
+
+		// Set a callback to run when the Google Visualization API is loaded.
+		//google.charts.setOnLoadCallback(drawChart);
+		google.charts.setOnLoadCallback(drawMap);
+
+		var data = null;
+		var map = null;
+		var options = null;
+		var lat = 44.2833027;
+		var long = 11.1110067;
+
+
+		function updateMap(lat_in, long_in) {
+			data = google.visualization.arrayToDataTable([
+				['Lat', 'Long', 'Name'],
+				[lat_in, long_in, 'CanSat'],
+			]);
+
+			map.draw(data, options);
+		}
+
+		function drawMap() {
+			data = google.visualization.arrayToDataTable([
+				['Lat', 'Long', 'Name'],
+				[lat, long, 'CanSat'],
+			]);
+
+			options = {
+				mapType: 'styledMap',
+				zoomLevel: 13,
+				showTooltip: true,
+				showInfoWindow: true,
+				useMapTypeControl: true,
+				// User will only be able to view/select custom styled maps.
+				mapTypeIds: ['styledMap'],
+				maps: {
+					styledMap: {
+						name: 'Standard',
+						styles: [{
+							featureType: 'road.highway',
+							stylers: [{
+								hue: '#0277bd'
+							}, {
+								saturation: -50
+							}]
+						}, {
+							featureType: 'road.highway',
+							elementType: 'labels.icon',
+							stylers: [{
+								hue: '#000'
+							}, {
+								saturation: 100
+							}, {
+								lightness: 50
+							}]
+						}, {
+							featureType: 'landscape',
+							stylers: [{
+								hue: '#259b24'
+							}, {
+								saturation: 10
+							}, {
+								lightness: -22
+							}]
+						}]
+					}
+				}
+			};
+			map = new google.visualization.Map(document.getElementById('map_div'));
+
+			map.draw(data, options);
+		}
+
+	</script>
+</head>
+
+<body>
+
+	<div class="header">
+		<p class="header-title">E<span>N</span>FORCE<span>6</span> Data Visualization</p>
+		<div class="box">
+			<p class="box-title">ID:</p>
+			<input type="text" id="idBox" class="box-text">
+			<button id="btnPlay" onclick="play()" class="box-button">
+				Play
+			</button>
+			<button id="btnRecord" onclick="record()" class="box-button">
+				Record
+			</button>
+		</div>
+	</div>
+
+
+
+	<div class="sections-half">
+		<div id="map_div" class="graphs"></div>
+	</div>
+
+	<div class="sections-half" id="canVis">
+		<script>
+			//var container = document.getElementById("canVis");
+
+		</script>
+		<script src="box.js"></script>
+		<!--<script src="sketch.js"></script>-->
+	</div>
+
+	<div class="sections-full" id="chartHolder">
+		<canvas id="chartCanvas"></canvas>
+		<script>
+			var chartCanvas = document.getElementById("chartCanvas");
+			chartCanvas.width = document.getElementById("chartHolder").offsetWidth;
+			chartCanvas.height = document.getElementById("chartHolder").offsetHeight;
+			var smoothie = new SmoothieChart();
+			smoothie.streamTo(chartCanvas, 1000);
+
+			window.onresize = function(event) {
+				chartCanvas.width = document.getElementById("chartHolder").offsetWidth;
+				chartCanvas.height = document.getElementById("chartHolder").offsetHeight;
+			}
+
+			// Data
+			var chartTemp = new TimeSeries();
+			var chartPressure = new TimeSeries();
+			var chartHumidity = new TimeSeries();
+			var chartAltitude = new TimeSeries();
+
+			// Add to SmoothieChart
+			smoothie.addTimeSeries(chartTemp, {
+				strokeStyle: 'red',
+				lineWidth: 3
+			});
+			smoothie.addTimeSeries(chartHumidity, {
+				strokeStyle: 'blue',
+				lineWidth: 3
+			});
+			smoothie.addTimeSeries(chartPressure, {
+				strokeStyle: 'orange',
+				lineWidth: 3
+			});
+			smoothie.addTimeSeries(chartAltitude, {
+				strokeStyle: 'green',
+				lineWidth: 3
+			});
+
+		</script>
+	</div>
+
+	<div class="sections-tiny">
+		<ul class="sensors-legend">
+
+			<li class="sensors-li" id="legend_red">Temperature(C): <span id="temperature">Test</span></li>
+			<li class="sensors-li" id="legend_blue">Umidità(%): <span id="humidity">Test</span></li>
+			<li class="sensors-li" id="legend_orange">Pressione(kPa): <span id="pressure">Test</span></li>
+			<li class="sensors-li" id="legend_green">Altitude(km): <span id="altitude">Test</span></li>
+		</ul>
+	</div>
+</body>
+
+</html>
